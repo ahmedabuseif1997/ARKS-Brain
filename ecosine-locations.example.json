@@ -1,0 +1,30 @@
+{
+  "_comment": "Copy this to `ecosine-locations.json` and describe the places your fleet actually sits. Keyed by the way the location is written in your vehicle sheet, lowercased. `aliases` catch the other spellings that turn up in the same column — sheets rarely spell a workshop the same way twice. Add a location here and the fleet agent can name it properly and place it on a map; anything it cannot match it reports rather than guessing. `ecosine-locations.json` is git-ignored: where your vehicles live is your business, not this repository's. The file is optional — without it, locations are reported exactly as the sheet writes them.",
+
+  "locations": {
+    "north garage": {
+      "official_name": "North Street Auto Workshop",
+      "address": "Unit 4, North Industrial Estate",
+      "kind": "workshop",
+      "lat": 25.1785,
+      "lng": 55.3721,
+      "aliases": ["north", "north st auto", "north street"]
+    },
+    "main depot": {
+      "official_name": "Main Depot",
+      "address": "Yard 2, Transport Road",
+      "kind": "depot",
+      "lat": 25.2764,
+      "lng": 55.3341,
+      "aliases": ["depot", "main yard", "hq depot"]
+    },
+    "on road": {
+      "official_name": "On road",
+      "address": "In service",
+      "kind": "in service",
+      "lat": null,
+      "lng": null,
+      "aliases": ["in service", "on duty", "out"]
+    }
+  }
+}

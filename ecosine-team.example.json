@@ -1,0 +1,17 @@
+{
+  "_comment": "Copy this to `ecosine-team.json` and list the people who fill in a daily sheet. `ecosine-team.json` is git-ignored — real colleagues' names do not belong in a public repository. Read fresh whenever a report runs, so an edit takes effect without a restart. Missing file means no daily reporters, which is a working state: the weekly report simply has no daily section.",
+  "daily_reporters": [
+    {
+      "name": "Their first name — also the folder name under the agent who follows them up",
+      "agent": "tom",
+      "role": "Their job title, shown as the heading above their section",
+      "daily_template": true
+    },
+    {
+      "name": "Someone whose sheet you do not want make-report-templates.py to create by default",
+      "agent": "harry",
+      "role": "Sales Executive",
+      "daily_template": false
+    }
+  ]
+}

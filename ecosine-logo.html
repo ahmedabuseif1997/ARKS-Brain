@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AHMED — Logo Animation</title>
+<style>
+  :root {
+    --cy:      #3fe0ff;
+    --cy-hi:   #7af9ff;
+    --teal:    #2ee8c8;
+    --ink:     #05080e;
+    --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #07090d; color: #cfeaf5;
+               font-family: var(--mono); overflow: hidden; }
+
+  .stage {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    /* checker shows through when transparent mode is on */
+    background-image:
+      linear-gradient(45deg, #0d1117 25%, transparent 25%),
+      linear-gradient(-45deg, #0d1117 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #0d1117 75%),
+      linear-gradient(-45deg, transparent 75%, #0d1117 75%);
+    background-size: 26px 26px;
+    background-position: 0 0, 0 13px, 13px -13px, -13px 0;
+    background-color: #0a0d12;
+  }
+  .stage.solid { background-image: none; background-color: #05080e; }
+
+  canvas { max-width: 92vw; max-height: 84vh; display: block; }
+
+  .bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 12px 18px;
+    background: rgba(6,10,16,0.9);
+    border-top: 1px solid rgba(122,249,255,0.14);
+    backdrop-filter: blur(14px);
+    font-size: 11px; letter-spacing: 0.08em;
+  }
+  .bar label { color: rgba(160,200,220,0.72); text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.16em; }
+  select, button {
+    background: rgba(122,249,255,0.08);
+    border: 1px solid rgba(122,249,255,0.22);
+    color: #cfeaf5; border-radius: 6px; padding: 6px 10px;
+    font-family: inherit; font-size: 11px; cursor: pointer; outline: none;
+  }
+  button:hover, select:hover { background: rgba(122,249,255,0.18); border-color: rgba(122,249,255,0.5); }
+  button.primary { color: #06222b; background: linear-gradient(90deg, #3fe0ff, #2ee8c8); border-color: transparent; font-weight: 600; }
+  button.primary:hover { filter: brightness(1.12); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  .spacer { flex: 1; }
+  .stat { color: rgba(160,200,220,0.6); font-size: 10px; }
+  .rec { color: #ff5f6d; }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage"><canvas id="c"></canvas></div>
+
+<div class="bar">
+  <label for="res">Resolution</label>
+  <select id="res">
+    <option value="1920x1080">1920 × 1080</option>
+    <option value="2560x1440">2560 × 1440</option>
+    <option value="3840x2160" selected>3840 × 2160 · 4K</option>
+    <option value="2160x2160">2160 × 2160 · square</option>
+  </select>
+
+  <label for="bg">Background</label>
+  <select id="bg">
+    <option value="transparent" selected>Transparent</option>
+    <option value="dark">Near-black</option>
+  </select>
+
+  <button id="replay">Replay</button>
+  <button id="export" class="primary">Record 8s loop</button>
+  <div class="spacer"></div>
+  <div class="stat" id="stat">8.00s seamless loop</div>
+</div>
+
+<script>
+"use strict";
+
+/* ==========================================================================
+   AHMED — LOGO ANIMATION
+   An 8-second seamless loop of a calm system booting: scan lines, particles
+   assembling into concentric rings, data points pulsing, and the wordmark
+   resolving. Everything is drawn procedurally in Canvas 2D, so it renders at
+   any resolution — including 4K — with no external assets.
+
+   The loop is genuinely seamless: every element's state at t=8 matches t=0,
+   so the boot dissolves back into darkness and begins again.
+   ========================================================================== */
+
+const LOOP = 8.0;                       // seconds
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: true });
+const stage = document.getElementById('stage');
+
+let W = 3840, H = 2160, S = 1;          // S scales the design to the canvas
+let transparent = true;
+
+function setResolution(w, h) {
+  W = w; H = h;
+  canvas.width = w; canvas.height = h;
+  // The design is authored against a 2160px reference height.
+  S = Math.min(w, h) / 2160 * (Math.min(w, h) === h ? 1 : 1);
+  S = Math.min(w / 3840, h / 2160) || 1;
+  if (w === h) S = w / 2600;
+}
+
+/* --------------------------------------------------------------------------
+   EASING — all timing runs through these so motion feels engineered
+   rather than linear.
+   -------------------------------------------------------------------------- */
+const clamp01 = (v) => v < 0 ? 0 : v > 1 ? 1 : v;
+const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+const easeInOut = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+// Maps absolute time to a 0..1 progress between two marks.
+const seg = (t, a, b) => clamp01((t - a) / (b - a));
+
+/* --------------------------------------------------------------------------
+   GEOMETRY — generated once, deterministic so every loop is identical.
+   -------------------------------------------------------------------------- */
+function mulberry(seed) {
+  return function () {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const rnd = mulberry(20260821);
+
+// Rings: radius factor, rotation speed (turns/loop), arc segments, weight.
+const RINGS = [
+  { r: 0.98, spin:  0.5, segs: [[0, 62], [96, 150], [186, 44], [250, 78]], w: 1.4, dim: 0.55 },
+  { r: 0.86, spin: -0.75, segs: [[20, 120], [170, 90], [290, 40]],          w: 2.2, dim: 0.9 },
+  { r: 0.73, spin:  1.0, segs: [[0, 360]],                                  w: 0.9, dim: 0.28 },
+  { r: 0.62, spin: -0.35, segs: [[40, 200], [260, 70]],                     w: 1.6, dim: 0.7 },
+  { r: 0.45, spin:  0.85, segs: [[0, 360]],                                 w: 0.8, dim: 0.2 },
+];
+
+// Tick marks around the outer ring.
+const TICKS = Array.from({ length: 72 }, (_, i) => ({
+  a: (i / 72) * Math.PI * 2,
+  long: i % 6 === 0,
+}));
+
+// Data points that ride the rings and pulse.
+const POINTS = Array.from({ length: 22 }, () => {
+  const ring = RINGS[Math.floor(rnd() * RINGS.length)];
+  return {
+    r: ring.r, spin: ring.spin,
+    a0: rnd() * Math.PI * 2,
+    phase: rnd(),
+    size: 0.6 + rnd() * 0.9,
+  };
+});
+
+// Particles that fly in and assemble onto the rings.
+const PARTICLES = Array.from({ length: 340 }, () => {
+  const ring = RINGS[Math.floor(rnd() * RINGS.length)];
+  const a = rnd() * Math.PI * 2;
+  return {
+    a, r: ring.r, spin: ring.spin,
+    // where it starts: far out, random direction
+    fromR: 1.7 + rnd() * 1.4,
+    fromA: a + (rnd() - 0.5) * 1.6,
+    delay: rnd() * 0.55,
+    size: 0.35 + rnd() * 0.75,
+  };
+});
+
+// Particles that form the wordmark: sampled from rendered text, once.
+let WORD_PTS = [];
+function sampleWordmark() {
+  const off = document.createElement('canvas');
+  const ow = 2000, oh = 420;
+  off.width = ow; off.height = oh;
+  const o = off.getContext('2d');
+  o.fillStyle = '#fff';
+  o.textAlign = 'center'; o.textBaseline = 'middle';
+  o.font = '600 190px "Helvetica Neue", Helvetica, Arial, sans-serif';
+  // letter-spacing by hand — canvas has no native tracking
+  const word = 'AHMED', tracking = 46;
+  const widths = [...word].map((ch) => o.measureText(ch).width);
+  const total = widths.reduce((a, b) => a + b, 0) + tracking * (word.length - 1);
+  let x = ow / 2 - total / 2;
+  for (let i = 0; i < word.length; i++) {
+    o.fillText(word[i], x + widths[i] / 2, oh / 2);
+    x += widths[i] + tracking;
+  }
+  const data = o.getImageData(0, 0, ow, oh).data;
+  const pts = [];
+  const step = 5;
+  for (let y = 0; y < oh; y += step) {
+    for (let x2 = 0; x2 < ow; x2 += step) {
+      if (data[(y * ow + x2) * 4 + 3] > 128) {
+        pts.push({
+          x: (x2 - ow / 2) / ow,        // normalized -0.5..0.5
+          y: (y - oh / 2) / ow,
+          jx: (rnd() - 0.5) * 2.2,
+          jy: (rnd() - 0.5) * 1.2,
+          d: rnd(),
+        });
+      }
+    }
+  }
+  return pts;
+}
+
+/* --------------------------------------------------------------------------
+   RENDER
+   -------------------------------------------------------------------------- */
+function draw(time) {
+  const t = ((time % LOOP) + LOOP) % LOOP;
+  const cx = W / 2, cy = H / 2;
+  const R = Math.min(W, H) * 0.385;     // master radius — everything derives from this
+
+  ctx.clearRect(0, 0, W, H);
+  if (!transparent) { ctx.fillStyle = '#05080e'; ctx.fillRect(0, 0, W, H); }
+
+  /* ---- global envelope: fade the whole mark in and back out for the loop */
+  const bootIn = easeOut(seg(t, 0.15, 1.6));
+  const holdOut = 1 - easeInOut(seg(t, 6.9, 7.9));
+  const alive = bootIn * holdOut;
+  if (alive <= 0.001) return;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  /* ---- 1. technical grid, faintest layer ------------------------------- */
+  const gridA = alive * 0.5 * easeOut(seg(t, 0.0, 1.0));
+  if (gridA > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = gridA;
+    ctx.strokeStyle = 'rgba(63,224,255,0.10)';
+    ctx.lineWidth = Math.max(1, 1.1 * S);
+    const g = R * 0.2;
+    ctx.beginPath();
+    for (let x = cx % g; x < W; x += g) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+    for (let y = cy % g; y < H; y += g) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ---- 2. scan lines sweeping through the boot ------------------------- */
+  const scanP = seg(t, 0.0, 2.2);
+  if (scanP > 0 && scanP < 1) {
+    const y = -H * 0.15 + (H * 1.3) * easeInOut(scanP);
+    const band = H * 0.16;
+    const g = ctx.createLinearGradient(0, y - band, 0, y + band);
+    g.addColorStop(0, 'rgba(63,224,255,0)');
+    g.addColorStop(0.5, `rgba(122,249,255,${0.16 * alive})`);
+    g.addColorStop(1, 'rgba(63,224,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, y - band, W, band * 2);
+    // crisp leading edge
+    ctx.strokeStyle = `rgba(122,249,255,${0.5 * alive})`;
+    ctx.lineWidth = Math.max(1, 1.6 * S);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  // fine horizontal interlace, always present but very faint
+  ctx.save();
+  ctx.globalAlpha = alive * 0.30;
+  ctx.fillStyle = 'rgba(63,224,255,0.05)';
+  const lh = Math.max(2, 3 * S);
+  for (let y = (t * 30 * S) % (lh * 2); y < H; y += lh * 2) ctx.fillRect(0, y, W, lh);
+  ctx.restore();
+
+  /* ---- 3. core glow ---------------------------------------------------- */
+  const corePulse = 0.5 + 0.5 * Math.sin(t / LOOP * Math.PI * 2 * 2);
+  const coreA = alive * (0.20 + corePulse * 0.10) * easeOut(seg(t, 0.8, 2.4));
+  const cg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.25);
+  cg.addColorStop(0, `rgba(46,232,200,${coreA * 0.55})`);
+  cg.addColorStop(0.4, `rgba(63,224,255,${coreA * 0.22})`);
+  cg.addColorStop(1, 'rgba(63,224,255,0)');
+  ctx.fillStyle = cg;
+  ctx.fillRect(0, 0, W, H);
+
+  /* ---- 4. particles assembling into the rings -------------------------- */
+  const asmBase = seg(t, 0.35, 2.6);
+  if (asmBase < 1) {
+    ctx.save();
+    for (const p of PARTICLES) {
+      const k = easeOut(clamp01((asmBase - p.delay) / (1 - p.delay)));
+      if (k <= 0) continue;
+      const rr = (p.fromR + (p.r - p.fromR) * k) * R;
+      const aa = p.fromA + (p.a - p.fromA) * k + t / LOOP * p.spin * Math.PI * 2 * k;
+      const x = cx + Math.cos(aa) * rr, y = cy + Math.sin(aa) * rr;
+      ctx.globalAlpha = alive * k * (1 - k * 0.35) * 0.9;
+      ctx.fillStyle = k > 0.85 ? '#7af9ff' : '#2ee8c8';
+      const s = p.size * 2.6 * S;
+      ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* ---- 5. concentric rings -------------------------------------------- */
+  const ringsIn = easeOut(seg(t, 1.1, 3.0));
+  if (ringsIn > 0) {
+    for (let i = 0; i < RINGS.length; i++) {
+      const ring = RINGS[i];
+      const rot = t / LOOP * ring.spin * Math.PI * 2;
+      const rr = ring.r * R * (0.94 + 0.06 * ringsIn);
+      ctx.lineWidth = Math.max(1, ring.w * 2.1 * S);
+      for (const [startDeg, lenDeg] of ring.segs) {
+        const a0 = startDeg * Math.PI / 180 + rot;
+        const a1 = a0 + (lenDeg * Math.PI / 180) * ringsIn;
+        ctx.strokeStyle = `rgba(${i % 2 ? '46,232,200' : '63,224,255'},${alive * ring.dim * ringsIn})`;
+        ctx.beginPath(); ctx.arc(cx, cy, rr, a0, a1); ctx.stroke();
+      }
+    }
+  }
+
+  /* ---- 6. tick marks on the outer ring --------------------------------- */
+  const ticksIn = easeOut(seg(t, 1.6, 3.2));
+  if (ticksIn > 0) {
+    const rot = t / LOOP * 0.5 * Math.PI * 2;
+    ctx.strokeStyle = `rgba(122,249,255,${alive * 0.42 * ticksIn})`;
+    ctx.lineWidth = Math.max(1, 1.4 * S);
+    ctx.beginPath();
+    for (const tk of TICKS) {
+      const a = tk.a + rot;
+      const r0 = R * 1.02, r1 = R * (tk.long ? 1.09 : 1.055);
+      ctx.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0);
+      ctx.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+    }
+    ctx.stroke();
+  }
+
+  /* ---- 7. data points pulsing on the rings ----------------------------- */
+  const ptsIn = easeOut(seg(t, 2.0, 3.4));
+  if (ptsIn > 0) {
+    for (const p of POINTS) {
+      const a = p.a0 + t / LOOP * p.spin * Math.PI * 2;
+      const x = cx + Math.cos(a) * p.r * R, y = cy + Math.sin(a) * p.r * R;
+      const pulse = 0.45 + 0.55 * Math.sin((t / LOOP + p.phase) * Math.PI * 2 * 3);
+      const s = p.size * (2.4 + pulse * 2.6) * S;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, s * 4);
+      g.addColorStop(0, `rgba(122,249,255,${alive * ptsIn * (0.5 + pulse * 0.5)})`);
+      g.addColorStop(1, 'rgba(122,249,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, s * 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(230,255,255,${alive * ptsIn})`;
+      ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  /* ---- 8. wordmark resolving from particles ---------------------------- */
+  const wordP = seg(t, 2.6, 4.6);
+  if (wordP > 0 && WORD_PTS.length) {
+    const scaleW = R * 2.05;
+    ctx.save();
+    for (const p of WORD_PTS) {
+      const k = easeOut(clamp01((wordP - p.d * 0.4) / (1 - p.d * 0.4)));
+      if (k <= 0) continue;
+      const tx = cx + p.x * scaleW;
+      const ty = cy + p.y * scaleW;
+      const sx = tx + p.jx * scaleW * (1 - k) * 0.5;
+      const sy = ty + p.jy * scaleW * (1 - k) * 0.5;
+      ctx.globalAlpha = alive * k;
+      ctx.fillStyle = k > 0.9 ? '#eafcff' : '#7af9ff';
+      const s = (1 - k) * 3.2 * S + 1.5 * S;
+      ctx.fillRect(sx - s / 2, sy - s / 2, s, s);
+    }
+    ctx.restore();
+
+    // once resolved, overlay crisp type so it reads sharply at any size
+    const crisp = easeOut(seg(t, 4.1, 4.9));
+    if (crisp > 0) {
+      ctx.save();
+      ctx.globalAlpha = alive * crisp;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const fs = R * 0.195;
+      ctx.font = `600 ${fs}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+      const word = 'AHMED', tracking = fs * 0.245;
+      const widths = [...word].map((ch) => ctx.measureText(ch).width);
+      const total = widths.reduce((a, b) => a + b, 0) + tracking * (word.length - 1);
+      let x = cx - total / 2;
+
+      // micro-glitch: brief chromatic split, twice per loop, very short
+      const gl = (Math.abs(((t / LOOP * 2) % 1) - 0.5) < 0.012) ? R * 0.008 : 0;
+      const drawWord = (dx, color, alpha) => {
+        ctx.fillStyle = color; ctx.globalAlpha = alive * crisp * alpha;
+        let xx = x + dx;
+        for (let i = 0; i < word.length; i++) {
+          ctx.fillText(word[i], xx + widths[i] / 2, cy);
+          xx += widths[i] + tracking;
+        }
+      };
+      if (gl) { drawWord(-gl, '#ff4d6d', 0.55); drawWord(gl, '#2ee8c8', 0.55); }
+      ctx.shadowColor = 'rgba(122,249,255,0.85)';
+      ctx.shadowBlur = fs * 0.42;
+      drawWord(0, '#eafcff', 1);
+      ctx.restore();
+    }
+
+    // underline that draws itself beneath the wordmark
+    const ul = easeOut(seg(t, 4.4, 5.4));
+    if (ul > 0) {
+      const w = R * 1.02 * ul;
+      const y = cy + R * 0.185;
+      const g = ctx.createLinearGradient(cx - w, y, cx + w, y);
+      g.addColorStop(0, 'rgba(63,224,255,0)');
+      g.addColorStop(0.5, `rgba(122,249,255,${alive * 0.9})`);
+      g.addColorStop(1, 'rgba(63,224,255,0)');
+      ctx.strokeStyle = g;
+      ctx.lineWidth = Math.max(1, 2.2 * S);
+      ctx.beginPath(); ctx.moveTo(cx - w, y); ctx.lineTo(cx + w, y); ctx.stroke();
+    }
+  }
+
+  /* ---- 9. system caption ---------------------------------------------- */
+  const capIn = easeOut(seg(t, 5.0, 6.0));
+  if (capIn > 0) {
+    ctx.save();
+    ctx.globalAlpha = alive * capIn * 0.72;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const fs = R * 0.038;
+    ctx.font = `400 ${fs}px "SF Mono", ui-monospace, Menlo, monospace`;
+    ctx.fillStyle = '#7af9ff';
+    const cap = 'I N T E L L I G E N C E   S Y S T E M   ·   O N L I N E';
+    ctx.fillText(cap, cx, cy + R * 0.30);
+    ctx.restore();
+  }
+
+  /* ---- 10. sweeping radar line, subtle -------------------------------- */
+  const sweepIn = easeOut(seg(t, 2.4, 3.6));
+  if (sweepIn > 0) {
+    const a = t / LOOP * Math.PI * 2 * 1;
+    const g = ctx.createLinearGradient(cx, cy, cx + Math.cos(a) * R, cy + Math.sin(a) * R);
+    g.addColorStop(0, 'rgba(46,232,200,0)');
+    g.addColorStop(1, `rgba(46,232,200,${alive * sweepIn * 0.5})`);
+    ctx.strokeStyle = g;
+    ctx.lineWidth = Math.max(1, 1.8 * S);
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R); ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+/* --------------------------------------------------------------------------
+   PLAYBACK
+   -------------------------------------------------------------------------- */
+let startTime = performance.now();
+let recording = false;
+
+function frame(now) {
+  if (!recording) draw((now - startTime) / 1000);
+  requestAnimationFrame(frame);
+}
+
+/* --------------------------------------------------------------------------
+   EXPORT — records exactly one loop to WebM. Alpha survives in VP9/VP8, so
+   the transparent version stays transparent in editors that support it.
+   -------------------------------------------------------------------------- */
+async function record() {
+  const btn = document.getElementById('export');
+  const stat = document.getElementById('stat');
+  btn.disabled = true;
+  recording = true;
+
+  const fps = 60;
+  const stream = canvas.captureStream(0);
+  const track = stream.getVideoTracks()[0];
+
+  const types = [
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm',
+  ];
+  const mime = types.find((m) => MediaRecorder.isTypeSupported(m)) || '';
+  const chunks = [];
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 40e6 });
+  rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+
+  const done = new Promise((resolve) => { rec.onstop = resolve; });
+  rec.start();
+
+  const total = Math.round(LOOP * fps);
+  for (let i = 0; i < total; i++) {
+    draw(i / fps);
+    if (track.requestFrame) track.requestFrame();
+    stat.innerHTML = `<span class="rec">● recording</span> ${i + 1}/${total}`;
+    // yield so the frame is actually committed before the next one
+    await new Promise((r) => setTimeout(r, 1000 / fps));
+  }
+  rec.stop();
+  await done;
+
+  const blob = new Blob(chunks, { type: mime.split(';')[0] || 'video/webm' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ahmed-logo-${W}x${H}-${transparent ? 'alpha' : 'dark'}.webm`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+
+  stat.textContent = `saved · ${(blob.size / 1e6).toFixed(1)} MB · ${W}×${H}`;
+  recording = false;
+  startTime = performance.now();
+  btn.disabled = false;
+}
+
+/* --------------------------------------------------------------------------
+   WIRING
+   -------------------------------------------------------------------------- */
+document.getElementById('res').addEventListener('change', (e) => {
+  const [w, h] = e.target.value.split('x').map(Number);
+  setResolution(w, h);
+  WORD_PTS = WORD_PTS.length ? WORD_PTS : sampleWordmark();
+  startTime = performance.now();
+});
+document.getElementById('bg').addEventListener('change', (e) => {
+  transparent = e.target.value === 'transparent';
+  stage.classList.toggle('solid', !transparent);
+});
+document.getElementById('replay').addEventListener('click', () => { startTime = performance.now(); });
+document.getElementById('export').addEventListener('click', record);
+
+setResolution(3840, 2160);
+WORD_PTS = sampleWordmark();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

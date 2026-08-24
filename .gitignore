@@ -1,0 +1,50 @@
+# ─────────────────────────────────────────────────────────────────────
+# Deny-by-default.
+#
+# This project was developed in a folder shared with unrelated checkouts,
+# so the list below is an allowlist rather than a list of exclusions:
+# ignore everything, then re-admit the AHMED files by name. `git add -A`
+# then cannot sweep in a neighbouring project, your filled-in config, or
+# your API keys, however the folder is laid out.
+# ─────────────────────────────────────────────────────────────────────
+*
+
+# ── The assistant ────────────────────────────────────────────────────
+!.gitignore
+!README.md
+!.env.example
+!Ecosine.html
+!ecosine-server.js
+
+# ── Tools the server shells out to ───────────────────────────────────
+!ecosine-assets.py
+!ecosine-daily.py
+!ecosine-fleet.py
+!ecosine-mail.py
+!ecosine-xlsx.py
+!ecosine-ocr.js
+!make-report-templates.py
+
+# ── Config + branding ────────────────────────────────────────────────
+# Templates only. The filled-in versions stay on the machine that runs this:
+# they hold your contact details, your colleagues' names and where your
+# vehicles are parked. None of that belongs in a public repository.
+!ecosine-profile.example.json
+!ecosine-team.example.json
+!ecosine-locations.example.json
+!ecosine-logo.html
+
+# ── Mail setup (double-clickable from Finder) ────────────────────────
+!setup-mail.sh
+!Setup Mail.command
+!Check Mail Login.command
+
+# ── Never, under any circumstances ───────────────────────────────────
+.env
+ecosine-profile.json
+ecosine-team.json
+ecosine-locations.json
+*.key
+*.pem
+__pycache__/
+.DS_Store

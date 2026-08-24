@@ -1,0 +1,89 @@
+{
+  "_comment": "Copy this to `ecosine-profile.json` and fill it in with your own details. The server re-reads that file on every request, so an edit takes effect without a restart. `ecosine-profile.json` is git-ignored and must stay that way — it is where your name, contact details and employer live. The assistant runs fine without it; it just will not know who you are.",
+  "identity": {
+    "name": "Your Name",
+    "address_as": "Sir",
+    "location": "City, Country",
+    "timezone": "Region/City (UTC+0)",
+    "current_role": "Your job title",
+    "professional_identity": "A sentence or two on what you do and the disciplines you combine.",
+    "positioning": "How you want to be described in written work — the angle, not the CV."
+  },
+  "contact": {
+    "phone": "",
+    "email": "",
+    "whatsapp": "",
+    "personal_email": ""
+  },
+  "employer": {
+    "name": "Your Employer Ltd.",
+    "short_name": "Employer",
+    "relationship": "Your relationship to it — employee, owner, consultant.",
+    "domain": "example.com",
+    "note": "Anything that stops the assistant misreading the corporate structure — e.g. which entities are subsidiaries rather than businesses you own."
+  },
+  "career": {
+    "current": "Current role, employer, location and dates.",
+    "previous": "What you did before, and the areas it covered.",
+    "education": "Your qualification",
+    "total_experience": "X+ years",
+    "scope": "The scale you operate at"
+  },
+  "team": {
+    "note": "The people you work with directly. The assistant refers to them the way you do.",
+    "members": [
+      { "name": "First name", "role": "Their role", "email": "", "entity": "Which entity they sit in" }
+    ]
+  },
+  "demonstrated_outcomes": [
+    "Measurable results you want cited in written work. Numbers travel further than adjectives.",
+    "One per line."
+  ],
+  "leadership_pillars": {
+    "pillar_one": "A theme you lead on, and how.",
+    "pillar_two": "Another.",
+    "pillar_three": "Another."
+  },
+  "core_expertise": [
+    "The subjects you actually know",
+    "Statutes, systems and disciplines you work in daily"
+  ],
+  "signature_work": [
+    "A project worth naming — what it was and what changed because of it."
+  ],
+  "problem_solving_method": {
+    "name": "Name your method, if you have one",
+    "steps": "How you work a problem, stage by stage.",
+    "guiding_principle": "The question you ask that others do not."
+  },
+  "group_entities_seen_in_his_files": {
+    "note": "Entities that turn up in documents on your machine, so the assistant reads them correctly rather than guessing.",
+    "example_entity": {
+      "arabic_name": "",
+      "license_no": "",
+      "legal_type": "",
+      "registered_with": "",
+      "activity": "",
+      "licence_valid_to": ""
+    },
+    "recurring_document_types": [
+      "The kinds of document that come up often — licences, payroll files, contracts",
+      "Note the languages, so OCR and search are pointed the right way"
+    ]
+  },
+  "machine": "MacBook (Apple Silicon), macOS",
+  "key_locations": {
+    "main_documents": "~/Desktop/…",
+    "this_project": "~/My project"
+  },
+  "how_to_work_with_him": {
+    "spoken_replies": "Tone for spoken answers — replies are read aloud, so length and register matter.",
+    "written_deliverables": "Tone for CVs, proposals, strategy documents and bios.",
+    "hard_rule": "Never invent employers, qualifications, clients, credentials, projects or metrics beyond this profile. If something is not here, say so rather than filling the gap."
+  },
+  "current_project": "What you are building right now.",
+  "assistant": {
+    "name": "AHMED",
+    "note": "The assistant's own name and how it should refer to itself."
+  }
+}
